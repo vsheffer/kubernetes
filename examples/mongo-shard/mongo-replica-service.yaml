@@ -1,0 +1,11 @@
+id: "mongod{REPLICA_SET_ID}{HOSTNUM}"
+kind: "Service"
+apiVersion: "v1beta1"
+port: 27017
+containerPort: 27017
+selector: 
+  type: "mongod"
+  replica-set: "{REPLICA_SET_ID}"
+  hostnum: "{HOSTNUM}"
+labels: 
+  name: "mongod{REPLICA_SET_ID}{HOSTNUM}"

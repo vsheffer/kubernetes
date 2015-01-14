@@ -1,0 +1,29 @@
+id: "mongoConfigController"
+kind: "ReplicationController"
+apiVersion: "v1beta1"
+desiredState: 
+  replicas: 3
+  replicaSelector: 
+    name: "mongoconfig"
+  podTemplate: 
+    desiredState: 
+      manifest: 
+        version: "v1beta1"
+        id: "mongoConfigController"
+        containers: 
+          - name: "config"
+            image: "vsheffer/mongo:mongo-config"
+            command: [ 
+              "/usr/local/bin/mongod",
+              "--configsvr",
+              "--dbpath",
+              "/data/configdb",
+              "--port 27019"
+            ]
+            cpu: 100
+            ports: 
+              - containerPort: 27019
+    labels: 
+      name: "mongoconfig"
+labels: 
+  name: "mongoconfig"
