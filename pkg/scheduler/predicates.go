@@ -159,6 +159,7 @@ func (n *NodeSelector) PodSelectorMatches(pod api.Pod, existingPods []api.Pod, n
 	if err != nil {
 		return false, err
 	}
+	glog.V(3).Infof("selector(%+v) ==? selector(%+v)", selector, minion.Labels)
 	return selector.Matches(labels.Set(minion.Labels)), nil
 }
 
@@ -166,6 +167,8 @@ func PodFitsHost(pod api.Pod, existingPods []api.Pod, node string) (bool, error)
 	if len(pod.Spec.Host) == 0 {
 		return true, nil
 	}
+
+	glog.V(3).Infof("host(%s) ==? host(%s)", pod.Spec.Host, node)
 	return pod.Spec.Host == node, nil
 }
 
@@ -176,6 +179,8 @@ func PodFitsPorts(pod api.Pod, existingPods []api.Pod, node string) (bool, error
 		if wport == 0 {
 			continue
 		}
+
+		glog.V(3).Infof("port(%d) ==? port(%+v)", wport, existingPorts)
 		if existingPorts[wport] {
 			return false, nil
 		}
