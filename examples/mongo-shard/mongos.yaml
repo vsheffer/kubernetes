@@ -1,0 +1,27 @@
+id: "mongosController"
+kind: "ReplicationController"
+apiVersion: "v1beta1"
+desiredState: 
+  replicas: 2
+  replicaSelector: 
+    name: "mongos"
+  podTemplate: 
+    desiredState: 
+      manifest: 
+        version: "v1beta1"
+        id: "mongosController"
+        containers: 
+          - name: "mongos"
+            image: "vsheffer/mongo:mongos"
+            command: [ 
+              "/usr/local/bin/mongos",
+              "--configdb=mongoconfig.default.bhnetwork.local"
+            ]
+            cpu: 100
+            ports: 
+              - containerPort: 27018
+                hostPort: 27017
+    labels: 
+      name: "mongos"
+labels: 
+  name: "mongos"

@@ -1,0 +1,34 @@
+id: mongod{REPLICA_SET_ID}{HOSTNUM}
+kind: ReplicationController
+apiVersion: v1beta2
+labels: 
+  type: mongod
+  replica-set: {REPLICA_SET_ID}
+  hostnum: {HOSTNUM}
+desiredState: 
+  replicas: 1
+  replicaSelector: 
+      type: mongod
+      replica-set: {REPLICA_SET_ID}
+      hostnum: {HOSTNUM}
+  podTemplate: 
+    labels: 
+      type: mongod
+      replica-set: {REPLICA_SET_ID}
+      hostnum: {HOSTNUM}
+    desiredState: 
+      manifest: 
+        version: "v1beta1"
+        id: "mongod{REPLICA_SET_ID}{HOSTNUM}"
+        containers: 
+          - name: "mongod"
+            image: "vsheffer/mongo:mongo"
+            command: [ 
+              "/usr/local/bin/mongod",
+              "--replSet {REPLICA_SET_ID}"
+            ]
+            cpu: 100
+            ports: 
+              - containerPort: 27017
+                hostPort: {HOST_PORT}
+

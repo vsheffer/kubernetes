@@ -1,0 +1,9 @@
+id: "mongoconfig"
+kind: "Service"
+apiVersion: "v1beta1"
+port: 27019
+containerPort: 27019
+selector: 
+  name: "mongoconfig"
+labels: 
+  name: "mongoconfig"
