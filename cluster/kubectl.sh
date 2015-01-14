@@ -18,7 +18,9 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-KUBE_ROOT=$(dirname "${BASH_SOURCE}")/..
+if [ -f $KUBE_ROOT ] ; then
+    KUBE_ROOT=$(dirname "${BASH_SOURCE}")/..
+fi
 source "${KUBE_ROOT}/cluster/kube-env.sh"
 source "${KUBE_ROOT}/cluster/${KUBERNETES_PROVIDER}/util.sh"
 
