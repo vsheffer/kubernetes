@@ -1,6 +1,6 @@
 id: "mongoConfigController"
 kind: "ReplicationController"
-apiVersion: "v1beta1"
+apiVersion: "v1beta2"
 desiredState: 
   replicas: 3
   replicaSelector: 
@@ -8,7 +8,7 @@ desiredState:
   podTemplate: 
     desiredState: 
       manifest: 
-        version: "v1beta1"
+        version: "v1beta2"
         id: "mongoConfigController"
         containers: 
           - name: "config"

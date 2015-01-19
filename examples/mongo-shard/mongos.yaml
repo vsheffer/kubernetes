@@ -2,7 +2,7 @@ id: "mongosController"
 kind: "ReplicationController"
 apiVersion: "v1beta1"
 desiredState: 
-  replicas: 2
+  replicas: 3
   replicaSelector: 
     name: "mongos"
   podTemplate: 
@@ -19,8 +19,7 @@ desiredState:
             ]
             cpu: 100
             ports: 
-              - containerPort: 27018
-                hostPort: 27017
+              - containerPort: 27017
     labels: 
       name: "mongos"
 labels: 

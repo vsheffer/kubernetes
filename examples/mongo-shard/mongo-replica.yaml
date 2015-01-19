@@ -30,5 +30,4 @@ desiredState:
             cpu: 100
             ports: 
               - containerPort: 27017
-                hostPort: {HOST_PORT}
 
