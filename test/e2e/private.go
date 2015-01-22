@@ -22,14 +22,14 @@ import (
 )
 
 // A basic test to check the deployment of the
-// container.cloud.google.com/_b_k8s_test/serve_hostname image
+// contaier gcr.io/_b_k8s_test/serve_hostname image
 // with the TestBasicImage test. This test is only supported
 // for the providers GCE and GKE.
 func TestPrivate(c *client.Client) bool {
 	if testContext.provider != "gce" && testContext.provider != "gke" {
-		glog.Infof("Skipping test private which is only supported for proivders gce and gke (not %s)", testContext.provider)
+		glog.Infof("Skipping test private which is only supported for providers gce and gke (not %s)", testContext.provider)
 		return true
 	}
 	glog.Info("Calling out to TestBasic")
-	return TestBasicImage(c, "container.cloud.google.com/_b_k8s_test/serve_hostname")
+	return TestBasicImage(c, "private", "gcr.io/_b_k8s_test/serve_hostname:1.0")
 }

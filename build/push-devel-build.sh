@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2014 Google Inc. All rights reserved.
+# Copyright 2015 Google Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,17 +14,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This command resizes a replication controller using kubectl.
+# Pushes a development build to a directory in your current project,
+# pushing to something like:
+# gs://kubernetes-releases-3fda2/devel/v0.8.0-437-g7f147ed/
 
-KUBE_ROOT=$(dirname "${BASH_SOURCE}")/../..
-KUBECTL="${KUBE_ROOT}/cluster/kubectl.sh"
+set -o errexit
+set -o nounset
+set -o pipefail
 
-if [[ $# != 2 ]] ; then
-  echo "usage: $0 <replication controller name> <size>" >&2
-  exit 1
-fi
+LATEST=$(git describe)
+KUBE_GCS_NO_CACHING=n
+KUBE_GCS_MAKE_PUBLIC=y
+KUBE_GCS_UPLOAD_RELEASE=y
+KUBE_GCS_RELEASE_PREFIX="devel/${LATEST}"
 
-rc="$1"
-size="$2"
+KUBE_ROOT=$(dirname "${BASH_SOURCE}")/..
+source "$KUBE_ROOT/build/common.sh"
 
-"${KUBECTL}" get -o json rc "$rc" | sed 's/"replicas": [0-9][0-9]*/"replicas": '"$size"'/' | "${KUBECTL}" update -f - rc "$rc"
+kube::release::gcs::release

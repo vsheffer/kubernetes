@@ -40,14 +40,7 @@ func validateVolumes(volumes []api.Volume) (util.StringSet, errs.ValidationError
 	allNames := util.StringSet{}
 	for i := range volumes {
 		vol := &volumes[i] // so we can set default values
-		el := errs.ValidationErrorList{}
-		if vol.Source == nil {
-			// TODO: Enforce that a source is set once we deprecate the implied form.
-			vol.Source = &api.VolumeSource{
-				EmptyDir: &api.EmptyDir{},
-			}
-		}
-		el = validateSource(vol.Source).Prefix("source")
+		el := validateSource(&vol.Source).Prefix("source")
 		if len(vol.Name) == 0 {
 			el = append(el, errs.NewFieldRequired("name", vol.Name))
 		} else if !util.IsDNSLabel(vol.Name) {
@@ -67,9 +60,9 @@ func validateVolumes(volumes []api.Volume) (util.StringSet, errs.ValidationError
 func validateSource(source *api.VolumeSource) errs.ValidationErrorList {
 	numVolumes := 0
 	allErrs := errs.ValidationErrorList{}
-	if source.HostDir != nil {
+	if source.HostPath != nil {
 		numVolumes++
-		allErrs = append(allErrs, validateHostDir(source.HostDir).Prefix("hostDirectory")...)
+		allErrs = append(allErrs, validateHostPath(source.HostPath).Prefix("hostPath")...)
 	}
 	if source.EmptyDir != nil {
 		numVolumes++
@@ -77,22 +70,25 @@ func validateSource(source *api.VolumeSource) errs.ValidationErrorList {
 	}
 	if source.GitRepo != nil {
 		numVolumes++
-		allErrs = append(allErrs, validateGitRepo(source.GitRepo)...)
+		allErrs = append(allErrs, validateGitRepo(source.GitRepo).Prefix("gitRepo")...)
 	}
 	if source.GCEPersistentDisk != nil {
 		numVolumes++
-		allErrs = append(allErrs, validateGCEPersistentDisk(source.GCEPersistentDisk)...)
+		allErrs = append(allErrs, validateGCEPersistentDisk(source.GCEPersistentDisk).Prefix("persistentDisk")...)
 	}
-	if numVolumes != 1 {
+	if numVolumes == 0 {
+		// TODO: Enforce that a source is set once we deprecate the implied form.
+		source.EmptyDir = &api.EmptyDir{}
+	} else if numVolumes != 1 {
 		allErrs = append(allErrs, errs.NewFieldInvalid("", source, "exactly 1 volume type is required"))
 	}
 	return allErrs
 }
 
-func validateHostDir(hostDir *api.HostDir) errs.ValidationErrorList {
+func validateHostPath(hostDir *api.HostPath) errs.ValidationErrorList {
 	allErrs := errs.ValidationErrorList{}
 	if hostDir.Path == "" {
-		allErrs = append(allErrs, errs.NewNotFound("path", hostDir.Path))
+		allErrs = append(allErrs, errs.NewFieldRequired("path", hostDir.Path))
 	}
 	return allErrs
 }
@@ -100,7 +96,7 @@ func validateHostDir(hostDir *api.HostDir) errs.ValidationErrorList {
 func validateGitRepo(gitRepo *api.GitRepo) errs.ValidationErrorList {
 	allErrs := errs.ValidationErrorList{}
 	if gitRepo.Repository == "" {
-		allErrs = append(allErrs, errs.NewFieldRequired("gitRepo.Repository", gitRepo.Repository))
+		allErrs = append(allErrs, errs.NewFieldRequired("repository", gitRepo.Repository))
 	}
 	return allErrs
 }
@@ -108,13 +104,13 @@ func validateGitRepo(gitRepo *api.GitRepo) errs.ValidationErrorList {
 func validateGCEPersistentDisk(PD *api.GCEPersistentDisk) errs.ValidationErrorList {
 	allErrs := errs.ValidationErrorList{}
 	if PD.PDName == "" {
-		allErrs = append(allErrs, errs.NewFieldRequired("PD.PDName", PD.PDName))
+		allErrs = append(allErrs, errs.NewFieldRequired("pdName", PD.PDName))
 	}
 	if PD.FSType == "" {
-		allErrs = append(allErrs, errs.NewFieldRequired("PD.FSType", PD.FSType))
+		allErrs = append(allErrs, errs.NewFieldRequired("fsType", PD.FSType))
 	}
 	if PD.Partition < 0 || PD.Partition > 255 {
-		allErrs = append(allErrs, errs.NewFieldInvalid("PD.Partition", PD.Partition, ""))
+		allErrs = append(allErrs, errs.NewFieldInvalid("partition", PD.Partition, ""))
 	}
 	return allErrs
 }
@@ -266,6 +262,29 @@ func validateLifecycle(lifecycle *api.Lifecycle) errs.ValidationErrorList {
 	return allErrs
 }
 
+// TODO(dchen1107): Move this along with other defaulting values
+func validatePullPolicyWithDefault(ctr *api.Container) errs.ValidationErrorList {
+	allErrors := errs.ValidationErrorList{}
+
+	switch ctr.ImagePullPolicy {
+	case "":
+		// TODO(dchen1107): Move ParseImageName code to pkg/util
+		parts := strings.Split(ctr.Image, ":")
+		// Check image tag
+		if parts[len(parts)-1] == "latest" {
+			ctr.ImagePullPolicy = api.PullAlways
+		} else {
+			ctr.ImagePullPolicy = api.PullIfNotPresent
+		}
+	case api.PullAlways, api.PullIfNotPresent, api.PullNever:
+		break
+	default:
+		allErrors = append(allErrors, errs.NewFieldNotSupported("", ctr.ImagePullPolicy))
+	}
+
+	return allErrors
+}
+
 func validateContainers(containers []api.Container, volumes util.StringSet) errs.ValidationErrorList {
 	allErrs := errs.ValidationErrorList{}
 
@@ -294,6 +313,7 @@ func validateContainers(containers []api.Container, volumes util.StringSet) errs
 		cErrs = append(cErrs, validatePorts(ctr.Ports).Prefix("ports")...)
 		cErrs = append(cErrs, validateEnv(ctr.Env).Prefix("env")...)
 		cErrs = append(cErrs, validateVolumeMounts(ctr.VolumeMounts, volumes).Prefix("volumeMounts")...)
+		cErrs = append(cErrs, validatePullPolicyWithDefault(ctr).Prefix("pullPolicy")...)
 		allErrs = append(allErrs, cErrs.PrefixIndex(i)...)
 	}
 	// Check for colliding ports across all containers.
@@ -378,7 +398,7 @@ func ValidatePod(pod *api.Pod) errs.ValidationErrorList {
 		allErrs = append(allErrs, errs.NewFieldInvalid("namespace", pod.Namespace, ""))
 	}
 	allErrs = append(allErrs, ValidatePodSpec(&pod.Spec).Prefix("spec")...)
-	allErrs = append(allErrs, validateLabels(pod.Labels, "labels")...)
+	allErrs = append(allErrs, ValidateLabels(pod.Labels, "labels")...)
 	return allErrs
 }
 
@@ -394,11 +414,12 @@ func ValidatePodSpec(spec *api.PodSpec) errs.ValidationErrorList {
 	allErrs = append(allErrs, validateContainers(spec.Containers, allVolumes).Prefix("containers")...)
 	allErrs = append(allErrs, validateRestartPolicy(&spec.RestartPolicy).Prefix("restartPolicy")...)
 	allErrs = append(allErrs, validateDNSPolicy(&spec.DNSPolicy).Prefix("dnsPolicy")...)
-	allErrs = append(allErrs, validateLabels(spec.NodeSelector, "nodeSelector")...)
+	allErrs = append(allErrs, ValidateLabels(spec.NodeSelector, "nodeSelector")...)
 	return allErrs
 }
 
-func validateLabels(labels map[string]string, field string) errs.ValidationErrorList {
+// ValidateLabels validates that a set of labels are correctly defined.
+func ValidateLabels(labels map[string]string, field string) errs.ValidationErrorList {
 	allErrs := errs.ValidationErrorList{}
 	for k := range labels {
 		if !util.IsQualifiedName(k) {
@@ -458,9 +479,9 @@ func ValidateService(service *api.Service, lister ServiceLister, ctx api.Context
 	}
 
 	if service.Spec.Selector != nil {
-		allErrs = append(allErrs, validateLabels(service.Spec.Selector, "spec.selector")...)
+		allErrs = append(allErrs, ValidateLabels(service.Spec.Selector, "spec.selector")...)
 	}
-	allErrs = append(allErrs, validateLabels(service.Labels, "labels")...)
+	allErrs = append(allErrs, ValidateLabels(service.Labels, "labels")...)
 
 	if service.Spec.CreateExternalLoadBalancer {
 		services, err := lister.ListServices(ctx)
@@ -496,7 +517,7 @@ func ValidateReplicationController(controller *api.ReplicationController) errs.V
 		allErrs = append(allErrs, errs.NewFieldInvalid("namespace", controller.Namespace, ""))
 	}
 	allErrs = append(allErrs, ValidateReplicationControllerSpec(&controller.Spec).Prefix("spec")...)
-	allErrs = append(allErrs, validateLabels(controller.Labels, "labels")...)
+	allErrs = append(allErrs, ValidateLabels(controller.Labels, "labels")...)
 	return allErrs
 }
 
@@ -533,7 +554,7 @@ func ValidateReplicationControllerSpec(spec *api.ReplicationControllerSpec) errs
 // ValidatePodTemplateSpec validates the spec of a pod template
 func ValidatePodTemplateSpec(spec *api.PodTemplateSpec) errs.ValidationErrorList {
 	allErrs := errs.ValidationErrorList{}
-	allErrs = append(allErrs, validateLabels(spec.Labels, "labels")...)
+	allErrs = append(allErrs, ValidateLabels(spec.Labels, "labels")...)
 	allErrs = append(allErrs, ValidatePodSpec(&spec.Spec).Prefix("spec")...)
 	allErrs = append(allErrs, ValidateReadOnlyPersistentDisks(spec.Spec.Volumes).Prefix("spec.volumes")...)
 	return allErrs
@@ -577,7 +598,7 @@ func ValidateMinion(minion *api.Node) errs.ValidationErrorList {
 	if len(minion.Name) == 0 {
 		allErrs = append(allErrs, errs.NewFieldRequired("name", minion.Name))
 	}
-	allErrs = append(allErrs, validateLabels(minion.Labels, "labels")...)
+	allErrs = append(allErrs, ValidateLabels(minion.Labels, "labels")...)
 	return allErrs
 }
 

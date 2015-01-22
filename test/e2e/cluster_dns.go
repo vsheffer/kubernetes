@@ -18,7 +18,6 @@ package e2e
 
 import (
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/api"
@@ -32,8 +31,13 @@ func TestClusterDNS(c *client.Client) bool {
 	// https://github.com/GoogleCloudPlatform/kubernetes/issues/3305
 	// (but even if it's fixed, this will need a version check for
 	// skewed version tests)
-	if os.Getenv("KUBERNETES_PROVIDER") == "gke" {
+	if testContext.provider == "gke" {
 		glog.Infof("skipping TestClusterDNS on gke")
+		return true
+	}
+
+	if testContext.provider == "vagrant" {
+		glog.Infof("Skipping test which is broken for vagrant (See https://github.com/GoogleCloudPlatform/kubernetes/issues/3580)")
 		return true
 	}
 
@@ -68,7 +72,7 @@ func TestClusterDNS(c *client.Client) bool {
 			Volumes: []api.Volume{
 				{
 					Name: "results",
-					Source: &api.VolumeSource{
+					Source: api.VolumeSource{
 						EmptyDir: &api.EmptyDir{},
 					},
 				},
@@ -126,6 +130,7 @@ func TestClusterDNS(c *client.Client) bool {
 				Do().Raw()
 			if err != nil {
 				failed = append(failed, name)
+				glog.V(4).Infof("Lookup for %s failed: %v", name, err)
 			}
 		}
 		if len(failed) == 0 {

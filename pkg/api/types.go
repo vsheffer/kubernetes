@@ -145,18 +145,19 @@ type Volume struct {
 	// Source represents the location and type of a volume to mount.
 	// This is optional for now. If not specified, the Volume is implied to be an EmptyDir.
 	// This implied behavior is deprecated and will be removed in a future version.
-	Source *VolumeSource `json:"source"`
+	Source VolumeSource `json:"source,omitempty"`
 }
 
-// VolumeSource represents the source location of a valume to mount.
+// VolumeSource represents the source location of a volume to mount.
 // Only one of its members may be specified.
 type VolumeSource struct {
-	// HostDir represents a pre-existing directory on the host machine that is directly
-	// exposed to the container. This is generally used for system agents or other privileged
-	// things that are allowed to see the host machine. Most containers will NOT need this.
+	// HostPath represents file or directory on the host machine that is
+	// directly exposed to the container. This is generally used for system
+	// agents or other privileged things that are allowed to see the host
+	// machine. Most containers will NOT need this.
 	// TODO(jonesdl) We need to restrict who can use host directory mounts and who can/can not
 	// mount host directories as read/write.
-	HostDir *HostDir `json:"hostDir"`
+	HostPath *HostPath `json:"hostPath"`
 	// EmptyDir represents a temporary directory that shares a pod's lifetime.
 	EmptyDir *EmptyDir `json:"emptyDir"`
 	// GCEPersistentDisk represents a GCE Disk resource that is attached to a
@@ -166,8 +167,8 @@ type VolumeSource struct {
 	GitRepo *GitRepo `json:"gitRepo"`
 }
 
-// HostDir represents bare host directory volume.
-type HostDir struct {
+// HostPath represents bare host directory volume.
+type HostPath struct {
 	Path string `json:"path"`
 }
 
@@ -290,11 +291,11 @@ type PullPolicy string
 
 const (
 	// PullAlways means that kubelet always attempts to pull the latest image.  Container will fail If the pull fails.
-	PullAlways PullPolicy = "PullAlways"
+	PullAlways PullPolicy = "Always"
 	// PullNever means that kubelet never pulls an image, but only uses a local image.  Container will fail if the image isn't present
-	PullNever PullPolicy = "PullNever"
+	PullNever PullPolicy = "Never"
 	// PullIfNotPresent means that kubelet pulls if the image isn't present on disk. Container will fail if the image isn't present and the pull fails.
-	PullIfNotPresent PullPolicy = "PullIfNotPresent"
+	PullIfNotPresent PullPolicy = "IfNotPresent"
 )
 
 // Container represents a single container that is expected to be run on the host.

@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"reflect"
 	"time"
 
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/api"
@@ -34,6 +33,7 @@ import (
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/kubelet"
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/kubelet/config"
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/kubelet/dockertools"
+	"github.com/GoogleCloudPlatform/kubernetes/pkg/kubelet/volume"
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/master"
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/service"
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/tools"
@@ -72,7 +72,7 @@ func GetAPIServerClient(authPath string, apiServerList util.StringList) (*client
 	}
 	// TODO: adapt Kube client to support LB over several servers
 	if len(apiServerList) > 1 {
-		glog.Infof("Mulitple api servers specified.  Picking first one")
+		glog.Infof("Multiple api servers specified.  Picking first one")
 	}
 	clientConfig.Host = apiServerList[0]
 	c, err := client.New(&clientConfig)
@@ -150,7 +150,8 @@ func SimpleRunKubelet(client *client.Client,
 	dockerClient dockertools.DockerInterface,
 	hostname, rootDir, manifestURL, address string,
 	port uint,
-	masterServiceNamespace string) {
+	masterServiceNamespace string,
+	volumePlugins []volume.Plugin) {
 	kcfg := KubeletConfig{
 		KubeClient:            client,
 		EtcdClient:            etcdClient,
@@ -167,6 +168,7 @@ func SimpleRunKubelet(client *client.Client,
 		MinimumGCAge:            10 * time.Second,
 		MaxContainerCount:       5,
 		MasterServiceNamespace:  masterServiceNamespace,
+		VolumePlugins:           volumePlugins,
 	}
 	RunKubelet(&kcfg)
 }
@@ -229,11 +231,11 @@ func makePodSourceConfig(kc *KubeletConfig) *config.PodConfig {
 		glog.Infof("Adding manifest url: %v", kc.ManifestURL)
 		config.NewSourceURL(kc.ManifestURL, kc.HttpCheckFrequency, cfg.Channel(kubelet.HTTPSource))
 	}
-	if kc.EtcdClient != nil && !reflect.ValueOf(kc.EtcdClient).IsNil() {
+	if kc.EtcdClient != nil {
 		glog.Infof("Watching for etcd configs at %v", kc.EtcdClient.GetCluster())
 		config.NewSourceEtcd(config.EtcdKeyForHost(kc.Hostname), kc.EtcdClient, cfg.Channel(kubelet.EtcdSource))
 	}
-	if kc.KubeClient != nil && !reflect.ValueOf(kc.KubeClient).IsNil() {
+	if kc.KubeClient != nil {
 		glog.Infof("Watching apiserver")
 		config.NewSourceApiserver(kc.KubeClient, kc.Hostname, cfg.Channel(kubelet.ApiserverSource))
 	}
@@ -267,6 +269,7 @@ type KubeletConfig struct {
 	Port                    uint
 	Runonce                 bool
 	MasterServiceNamespace  string
+	VolumePlugins           []volume.Plugin
 }
 
 func createAndInitKubelet(kc *KubeletConfig, pc *config.PodConfig) (*kubelet.Kubelet, error) {
@@ -288,7 +291,8 @@ func createAndInitKubelet(kc *KubeletConfig, pc *config.PodConfig) (*kubelet.Kub
 		pc.IsSourceSeen,
 		kc.ClusterDomain,
 		net.IP(kc.ClusterDNS),
-		kc.MasterServiceNamespace)
+		kc.MasterServiceNamespace,
+		kc.VolumePlugins)
 
 	if err != nil {
 		return nil, err
