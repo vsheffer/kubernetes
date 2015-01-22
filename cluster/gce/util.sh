@@ -315,7 +315,7 @@ function create-minion {
       --image "${IMAGE}" \
       --tags "${MINION_TAG}" \
       --network "${NETWORK}" \
-#      $2 \
+      $2 \
       --can-ip-forward \
       --metadata-from-file "$3"; then
         if (( attempt > 5 )); then
@@ -420,7 +420,7 @@ function kube-up {
   gcloud compute disks create "${MASTER_NAME}-pd" \
     --project "${PROJECT}" \
     --zone "${ZONE}" \
-    --size "10GB"
+    --size "100GB"
 
   gcloud compute instances create "${MASTER_NAME}" \
     --project "${PROJECT}" \
@@ -431,7 +431,7 @@ function kube-up {
     --tags "${MASTER_TAG}" \
     --network "${NETWORK}" \
     --scopes "storage-ro" "compute-rw" \
-#    --metadata-from-file "startup-script=${KUBE_TEMP}/master-start.sh" \
+    --metadata-from-file "startup-script=${KUBE_TEMP}/master-start.sh" \
     --disk name="${MASTER_NAME}-pd" device-name=master-pd mode=rw boot=no auto-delete=no &
 
   # Create a single firewall rule for all minions.
